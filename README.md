@@ -2,8 +2,6 @@
 
 This WordPress plugin allows multiple 3rd party plugins to easily add color and image fields to taxonomies via an action hook.
 
-Collections can be color coded and entities can be grouped under multiple collections.
-
 Demo plugin included.
 
 ### Installation
