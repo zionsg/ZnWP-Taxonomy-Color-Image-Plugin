@@ -10,6 +10,8 @@
  *     @param  callback No additional arguments for callback needed
  *     @return array    See $config_defaults and demo plugin for examples
  *
+ * @todo    Fix default values for color picker if none are set.
+ *          Fix default values esp file url (not attachment url) for media uploader
  * @package ZnWP Taxonomy Color Image Plugin
  * @author  Zion Ng <zion@intzone.com>
  * @link    https://github.com/zionsg/ZnWP-Taxonomy-Color-Image-Plugin for canonical source repository
@@ -168,15 +170,26 @@ class ZnWP_Taxonomy_Color_Image
                         }
                     );
 
-                    // For saving data in metabox when adding or editing post
-                    foreach ($this->get_post_types_for_taxonomy($taxonomy) as $post_type) {
-                        add_action(
-                            "save_post_{$post_type}",
-                            function ($post_id) use ($me, $taxonomy) {
-                                return $me->save_post_taxonomy_terms($taxonomy, $post_id);
+                    // get_post_types_for_taxonomy() will only work after taxonomy is registered hence use action hook
+                    add_action(
+                        'registered_taxonomy',
+                        function ($registered_taxonomy, $object_type, $args) use ($me, $taxonomy) {
+                            if ($registered_taxonomy == $taxonomy) {
+                                // For saving data in metabox when adding or editing post
+                                foreach ($me->get_post_types_for_taxonomy($taxonomy) as $post_type) {
+                                    add_action(
+                                        "save_post_{$post_type}",
+                                        function ($post_id) use ($me, $taxonomy) {
+                                            return $me->save_post_taxonomy_terms($taxonomy, $post_id);
+                                        }
+                                    );
+                                }
                             }
-                        );
-                    }
+                        },
+                        10,
+                        3
+                    );
+
                 } // end taxonomies
             } // end action
         } // end actions
@@ -610,7 +623,7 @@ class ZnWP_Taxonomy_Color_Image
     {
         // Check for existing taxonomy meta for the term being edited
         $term_id = $term->term_id; // Get the ID of the term being edited
-        $term_meta = get_option("{$taxonomy}_term_{$term_id}");
+        $term_meta = array_merge($this->custom_field_defaults, get_option("{$taxonomy}_term_{$term_id}", array()));
 
         $defaults = array(
             'label' => '',
