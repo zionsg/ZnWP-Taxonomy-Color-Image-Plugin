@@ -582,7 +582,9 @@ class ZnWP_Taxonomy_Color_Image
     {
         if (!isset($this->post_types_by_taxonomy[$taxonomy])) {
             $taxonomy_object = get_taxonomy($taxonomy);
-            $this->post_types_by_taxonomy[$taxonomy] = $taxonomy_object->object_type;
+            $this->post_types_by_taxonomy[$taxonomy] = empty($taxonomy_object->object_type)
+                                                     ? array()
+                                                     : $taxonomy_object->object_type;
         }
 
         return $this->post_types_by_taxonomy[$taxonomy];
