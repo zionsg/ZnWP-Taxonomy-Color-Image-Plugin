@@ -18,3 +18,5 @@ This plugin only has 1 action hook - `znwp_taxonomy_color_image_run` which takes
 After installation, you will see 2 plugins installed - the plugin itself and a demo plugin. Activate the demo plugin to see it in action.
 
 View the source code of the [Demo Plugin](https://raw.githubusercontent.com/zionsg/ZnWP-Taxonomy-Color-Image-Plugin/master/znwp_taxonomy_color_image_plugin/demo.php) to see how to use the action hook.
+
+Useful functions for developers are tagged with the @internal docblock tag in the `ZnWP_Taxonomy_Color_Image` class.
