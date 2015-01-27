@@ -5,13 +5,16 @@
  * This plugin is designed to allow multiple 3rd party plugins to use it to add color and image fields
  * (henceforth referred collectively as "custom fields") to taxonomies.
  *
+ * Useful functions for developers are tagged with the @internal docblock tag.
+ * Example usage:
+ *     global $znwp_taxonomy_color_image_plugin;
+ *     $terms = $znwp_taxonomy_color_image_plugin->get_taxonomy_terms('category');
+ *
  * Info on action hook for setup:
  *     @hook   string   znwp_taxonomy_color_image_run
  *     @param  callback No additional arguments for callback needed
  *     @return array    See $config_defaults and demo plugin for examples
  *
- * @todo    Fix default values for color picker if none are set.
- *          Fix default values esp file url (not attachment url) for media uploader
  * @package ZnWP Taxonomy Color Image Plugin
  * @author  Zion Ng <zion@intzone.com>
  * @link    https://github.com/zionsg/ZnWP-Taxonomy-Color-Image-Plugin for canonical source repository
@@ -45,7 +48,7 @@ class ZnWP_Taxonomy_Color_Image
      * @var array
      */
     protected $custom_field_defaults = array(
-        'background_color' => '',
+        'background_color' => '#ffffff', // HTML5 color input defaults to black if no value set, hence set to white
         'color' => '',
         'image_id' => '',
     );
@@ -266,7 +269,7 @@ class ZnWP_Taxonomy_Color_Image
      */
     public function custom_column($taxonomy, $out, $column_name, $term_id)
     {
-        $term_meta = array_merge($this->custom_field_defaults, get_option("{$taxonomy}_term_{$term_id}", array()));
+        $term_meta = $this->get_term_meta($term_id, $taxonomy);
 
         if ('color' == $column_name) {
             printf(
@@ -317,16 +320,34 @@ class ZnWP_Taxonomy_Color_Image
     }
 
     /**
-     * Generate form HTML for all taxonomy terms
+     * Callback for saving all the selected taxonomy terms when a post is saved
      *
-     * Method is set as public to allow for use in frontend pages.
+     * update_post_meta() is not used as that is for custom fields in a post, which is 1-to-1.
+     * wp_set_object_terms() links multiple taxonomy terms to a post, which is many-to-1.
      *
      * @param  string $taxonomy Taxonomy name
-     * @param  int    $post_id  Optional post ID. This param is needed as the form may not
-     *                          be for the current post, eg. on frontend pages
-     * @param  array  $terms    Optional taxonomy terms which can be passed in if pre-computed to
-     *                          avoid repeated queries
-     * @return string
+     * @param  int    $post_id  The ID of the post
+     * @return void
+     */
+    public function save_post_taxonomy_terms($taxonomy, $post_id)
+    {
+        // Update the post terms
+        if (isset($_POST[$taxonomy])) {
+            // Must cast all the term_id values to int else they will be misinterpreted as slugs
+            wp_set_object_terms($post_id, array_map('intval', $_POST[$taxonomy]), $taxonomy, false); // overwrite
+        }
+    }
+
+    /**
+     * Generate form HTML for all taxonomy terms
+     *
+     * @internal Useful public function for developers
+     * @param    string $taxonomy Taxonomy name
+     * @param    int    $post_id  Optional post ID. This param is needed as the form may not
+     *                            be for the current post, eg. on frontend pages
+     * @param    array  $terms    Optional taxonomy terms which can be passed in if pre-computed to
+     *                            avoid repeated queries
+     * @return   string
      */
     public function generate_form_html($taxonomy, $post_id = null, $terms = null)
     {
@@ -376,33 +397,15 @@ class ZnWP_Taxonomy_Color_Image
     }
 
     /**
-     * Callback for saving all the selected taxonomy terms when a post is saved
-     *
-     * update_post_meta() is not used as that is for custom fields in a post, which is 1-to-1.
-     * wp_set_object_terms() links multiple taxonomy terms to a post, which is many-to-1.
-     *
-     * @param  string $taxonomy Taxonomy name
-     * @param  int    $post_id  The ID of the post
-     * @return void
-     */
-    public function save_post_taxonomy_terms($taxonomy, $post_id)
-    {
-        // Update the post terms
-        if (isset($_POST[$taxonomy])) {
-            // Must cast all the term_id values to int else they will be misinterpreted as slugs
-            wp_set_object_terms($post_id, array_map('intval', $_POST[$taxonomy]), $taxonomy, false); // overwrite
-        }
-    }
-
-    /**
      * Get taxonomy terms linked to a post
      *
      * Each term will have a 'term_meta' property that contains all metadata.
      * Terms will be indexed by term_id to facilitate searching.
      *
-     * @param  int    $post_id  The ID of the post
-     * @param  string $taxonomy Taxonomy name
-     * @return array
+     * @internal Useful public function for developers
+     * @param    int    $post_id  The ID of the post
+     * @param    string $taxonomy Taxonomy name
+     * @return   array
      */
     public function get_post_taxonomy_terms($post_id, $taxonomy)
     {
@@ -414,11 +417,7 @@ class ZnWP_Taxonomy_Color_Image
 
         $results = array();
         foreach ($terms as $term) {
-            $term->term_meta = array_merge(
-                $this->custom_field_defaults,
-                get_option("{$taxonomy}_term_{$term_id}", array())
-            );
-            $results[$term->term_id] = $term;
+            $results[$term->term_id] = $this->add_term_meta($term, $taxonomy);
         }
 
         return $results;
@@ -430,8 +429,9 @@ class ZnWP_Taxonomy_Color_Image
      * Each term will have a 'term_meta' property that contains all metadata.
      * Terms will be indexed by term_id to facilitate searching.
      *
-     * @param  string $taxonomy Taxonomy name
-     * @return object[]
+     * @internal Useful public function for developers
+     * @param    string $taxonomy Taxonomy name
+     * @return   object[]
      */
     public function get_taxonomy_terms($taxonomy)
     {
@@ -440,11 +440,7 @@ class ZnWP_Taxonomy_Color_Image
         $results = array();
 
         foreach ($terms as $key => $term) {
-            $term->term_meta = array_merge(
-                $this->custom_field_defaults,
-                get_option("{$taxonomy}_term_{$term_id}", array())
-            );
-            $results[$term->term_id] = $term;
+            $results[$term->term_id] = $this->add_term_meta($term, $taxonomy);
         }
 
         return $results;
@@ -455,9 +451,10 @@ class ZnWP_Taxonomy_Color_Image
      *
      * The term will have a 'term_meta' property that contains all metadata.
      *
-     * @param  int    $term_id
-     * @param  string $taxonomy Taxonomy name
-     * @return null|object
+     * @internal Useful public function for developers
+     * @param    int    $term_id
+     * @param    string $taxonomy Taxonomy name
+     * @return   null|object
      */
     public function get_taxonomy_term($term_id, $taxonomy)
     {
@@ -467,29 +464,7 @@ class ZnWP_Taxonomy_Color_Image
             return null;
         }
 
-        $term->term_meta = array_merge(
-            $this->custom_field_defaults,
-            get_option("{$taxonomy}_term_{$term_id}", array())
-        );
-
-        return $term;
-    }
-
-    /**
-     * Get image url for taxonomy term
-     *
-     * @param  array $term_meta
-     * @return string
-     */
-    public function get_taxonomy_term_image_url($term_meta)
-    {
-        $image_url = '';
-        if (isset($term_meta['image_id'])) {
-            $image_src = wp_get_attachment_image_src($term_meta['image_id'], $this->image_size);
-            $image_url = $image_src[0];
-        }
-
-        return $image_url;
+        return $this->add_term_meta($term, $taxonomy);
     }
 
     /**
@@ -500,6 +475,7 @@ class ZnWP_Taxonomy_Color_Image
     protected function customize_media_uploader()
     {
         $plugin_context = self::CONTEXT;
+
         add_filter('media_upload_tabs', function ($default_tabs) use ($plugin_context) {
             $context = isset($_GET['context']) ? $_GET['context'] : '';
             if ($context == $plugin_context) {
@@ -511,13 +487,30 @@ class ZnWP_Taxonomy_Color_Image
         }, 10, 1);
 
         add_filter('attachment_fields_to_edit', function ($form_fields, $post) use ($plugin_context) {
+            // If user uploads media from "From Computer" tab, no context will be passed to $_GET or $_POST
+            // hence the check for HTTP_REFERER
             $context = isset($_GET['context']) ? $_GET['context'] : '';
-            if ($context == $plugin_context) {
+            if (   $context == $plugin_context
+                || (stripos($_SERVER['HTTP_REFERER'], "context={$plugin_context}") !== false)
+            ) {
+                // Make file url default for link url
+                $form_fields['url']['html'] .= "
+                    <script>jQuery(document).ready(function () { jQuery('button.urlfile').click(); });</script>
+                ";
+
+                // Replace "Insert Into Post" button
                 $send = "<input type='submit' class='button' name='send[{$post->ID}]' value='Use Image' />";
                 $form_fields['buttons'] = array(
                     'tr' => "\t\t<tr class='submit'><td></td><td class='savesend'>{$send}</td></tr>\n"
                 );
+
+                // Add context and set to plugin name
                 $form_fields['context'] = array('input' => 'hidden', 'value' => 'znwp-taxonomy-color-image');
+
+                // Remove unnecessary fields that may confuse the user
+                foreach (array('menu_order', 'align', 'image-size') as $field) {
+                    unset($form_fields[$field]);
+                }
             }
 
             return $form_fields;
@@ -623,7 +616,7 @@ class ZnWP_Taxonomy_Color_Image
     {
         // Check for existing taxonomy meta for the term being edited
         $term_id = $term->term_id; // Get the ID of the term being edited
-        $term_meta = array_merge($this->custom_field_defaults, get_option("{$taxonomy}_term_{$term_id}", array()));
+        $term_meta = $this->get_term_meta($term, $taxonomy);
 
         $defaults = array(
             'label' => '',
@@ -755,11 +748,66 @@ class ZnWP_Taxonomy_Color_Image
             return;
         }
 
-        $term_meta = get_option("{$taxonomy}_term_{$term_id}");
+        $term_meta = $this->get_term_meta($term_id, $taxonomy);
         foreach ($data['term_meta'] as $key => $value) {
             $term_meta[$key] = $value;
         }
 
         update_option("{$taxonomy}_term_{$term_id}", $term_meta);
+    }
+
+    /**
+     * Get term meta for term
+     *
+     * @param  int|object $term     Term ID or Term object
+     * @param  string     $taxonomy Taxonomy name
+     * @return array
+     */
+    protected function get_term_meta($term, $taxonomy)
+    {
+        if (is_object($term)) {
+            $term = $term->term_id;
+        }
+
+        return array_merge(
+            $this->custom_field_defaults,
+            get_option("{$taxonomy}_term_{$term}", array())
+        );
+    }
+
+    /**
+     * Add term meta to term
+     *
+     * The term will have a 'term_meta' property that contains all metadata.
+     *
+     * @param  object $term     Term object
+     * @param  string $taxonomy Taxonomy name
+     * @return object
+     */
+    protected function add_term_meta($term, $taxonomy)
+    {
+        $term->term_meta = array_merge(
+            $this->custom_field_defaults,
+            get_option("{$taxonomy}_term_{$term->term_id}", array())
+        );
+
+        return $term;
+    }
+
+    /**
+     * Get image url for taxonomy term
+     *
+     * @param  array $term_meta
+     * @return string
+     */
+    protected function get_taxonomy_term_image_url($term_meta)
+    {
+        $image_url = '';
+        if (isset($term_meta['image_id'])) {
+            $image_src = wp_get_attachment_image_src($term_meta['image_id'], $this->image_size);
+            $image_url = $image_src[0];
+        }
+
+        return $image_url;
     }
 }
