@@ -2,7 +2,7 @@
 /*
 Plugin Name: ZnWP Taxonomy Color and Image Plugin
 Plugin URI:  https://github.com/zionsg/ZnWP-Taxonomy-Color-Image-Plugin
-Description: This plugin allows multiple 3rd party plugins to easily add color and image fields to taxonomies. Demo plugin included.
+Description: This plugin allows multiple 3rd party plugins to easily add color, image and order fields to taxonomies. Demo plugin included.
 Author:      Zion Ng
 Author URI:  http://intzone.com/
 Version:     1.0.0
