@@ -2,8 +2,9 @@
 /**
  * Plugin class
  *
- * This plugin is designed to allow multiple 3rd party plugins to use it to add color and image fields
- * (henceforth referred collectively as "custom fields") to taxonomies.
+ * This plugin is designed to allow multiple 3rd party plugins to use it to add
+ * color, image and order fields (henceforth referred collectively as
+ * "custom fields") to taxonomies.
  *
  * Useful functions for developers are tagged with the @internal docblock tag.
  * Example usage:
@@ -51,6 +52,7 @@ class ZnWP_Taxonomy_Color_Image
         'background_color' => '#ffffff', // HTML5 color input defaults to black if no value set, hence set to white
         'color' => '',
         'image_id' => '',
+        'order' => 10,
     );
 
     /**
@@ -223,6 +225,11 @@ class ZnWP_Taxonomy_Color_Image
                 'hint'  => 'Associate an image with this taxonomy term',
                 'type'  => 'image',
             ),
+            'order' => array(
+                'label' => 'Order',
+                'hint'  => 'Order among other terms. Smaller numbers come first. Default is 10.',
+                'type'  => 'number',
+            ),
         ));
     }
 
@@ -250,6 +257,7 @@ class ZnWP_Taxonomy_Color_Image
             'name'  => __('Name'),
             'color' => __('Color'),
             'image' => __('Image'),
+            'order' => __('Order'),
             // 'header_icon' => '',
             // 'description' => __('Description'),
             'slug'  => __('Slug'),
@@ -283,6 +291,8 @@ class ZnWP_Taxonomy_Color_Image
                 $this->get_taxonomy_term_image_url($term_meta),
                 $this->image_style
             );
+        } elseif ('order' == $column_name) {
+            echo $term_meta['order'];
         }
     }
 
@@ -421,6 +431,29 @@ class ZnWP_Taxonomy_Color_Image
         }
 
         return $results;
+    }
+
+    /**
+     * Order terms using the custom order field in term meta followed by name
+     *
+     * @internal Useful public function for developers
+     * @param    object[] $terms
+     * @return   object[]
+     */
+    public function order_terms($terms)
+    {
+        usort($terms, function ($a, $b) {
+            $a_order = (int) $a->term_meta['order'];
+            $b_order = (int) $b->term_meta['order'];
+
+            if ($a_order == $b_order) {
+                return ($a->name <= $b->name ? -1 : 1);
+            }
+
+            return ($a_order < $b_order ? -1 : 1);
+        });
+
+        return $terms;
     }
 
     /**
