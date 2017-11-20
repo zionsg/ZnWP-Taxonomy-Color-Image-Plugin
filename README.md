@@ -1,4 +1,4 @@
-##ZnWP Taxonomy Color and Image Plugin
+## ZnWP Taxonomy Color and Image Plugin
 
 This WordPress plugin allows multiple 3rd party plugins to easily add color and image fields to taxonomies via an action hook.
 
